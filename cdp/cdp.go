@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Necho-dev/vartio-plugin-chrome-devtools/sdk"
+	"github.com/Necho-dev/vartio/sdk"
 	"io"
 	"io/fs"
 	"math/rand/v2"
@@ -53,17 +53,6 @@ type wsTicket struct {
 }
 
 func New() *Plugin { return &Plugin{} }
-
-func (p *Plugin) Manifest() sdk.Manifest {
-	return sdk.Manifest{
-		Name:        Name,
-		Title:       "Chrome DevTools",
-		Version:     "1.0.0",
-		Description: "发现、启动并经探针隧道接管远端机器上的 Chrome / Edge / Chromium / 比特浏览器窗口，提供 CDP 透明转发与在线调试",
-		Primitives:  []string{sdk.CapTunnelTCP, sdk.CapFsWhich, sdk.CapFsRead, sdk.CapProcSpawn, sdk.CapNetListeners},
-		Targets:     []string{"127.0.0.1:*", "[::1]:*"},
-	}
-}
 
 func (p *Plugin) Init(_ context.Context, host sdk.Host) error {
 	p.host = host

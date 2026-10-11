@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/Necho-dev/vartio-plugin-chrome-devtools/cdp"
-	"github.com/Necho-dev/vartio-plugin-chrome-devtools/sdk"
+	"github.com/Necho-dev/vartio/sdk"
 )
 
 func main() {

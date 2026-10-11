@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Necho-dev/vartio-plugin-chrome-devtools/sdk"
+	"github.com/Necho-dev/vartio/sdk"
 	"io"
 	"net"
 	"net/http"
