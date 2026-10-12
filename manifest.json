@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "name": "cdp",
   "title": "Chrome DevTools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "发现、启动并经探针隧道接管远端机器上的 Chrome / Edge / Chromium / 比特浏览器窗口，提供 CDP 透明转发与在线调试",
   "source": "https://github.com/Necho-dev/vartio-plugin-chrome-devtools",
   "engines": {"hostApi": "1"},
