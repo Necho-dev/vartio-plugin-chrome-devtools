@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"slices"
 	"sort"
 	"strconv"
@@ -214,7 +215,8 @@ func (p *Plugin) handleBrowsers(w http.ResponseWriter, r *http.Request) {
 func (p *Plugin) findInstalled(ctx context.Context, id, goos string) ([]Installed, error) {
 	req := sdk.WhichRequest{}
 	owner := map[string]Browser{}
-	for _, b := range catalog {
+	browsers := append(append([]Browser{}, catalog...), extraBrowsers(ctx, id, goos)...)
+	for _, b := range browsers {
 		for _, q := range b.Paths[goos] {
 			req.Paths = append(req.Paths, q)
 			owner[q] = b
@@ -257,6 +259,71 @@ func (p *Plugin) listeners(ctx context.Context, id string, names []string) ([]sd
 	return ls, err
 }
 
+// extraBrowsers reads the per-agent lines saved in the hub. Each line is
+// "名称|路径" or just a path on that probe.
+func extraBrowsers(ctx context.Context, agent, goos string) []Browser {
+	raw := pluginConfig(ctx, agent)["browsers"]
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var out []Browser
+	for i, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		name, path, ok := strings.Cut(line, "|")
+		name, path = strings.TrimSpace(name), strings.TrimSpace(path)
+		if !ok || path == "" {
+			path = name
+			name = pathBase(path)
+		}
+		if path == "" {
+			continue
+		}
+		out = append(out, Browser{
+			Key: fmt.Sprintf("extra-%d", i+1), Name: name,
+			Paths: map[string][]string{goos: {path}},
+		})
+	}
+	return out
+}
+
+func pathBase(path string) string {
+	path = strings.ReplaceAll(path, "\\", "/")
+	if i := strings.LastIndex(path, "/"); i >= 0 {
+		path = path[i+1:]
+	}
+	return path
+}
+
+func pluginConfig(ctx context.Context, agent string) map[string]string {
+	base := strings.TrimRight(os.Getenv("VARTIO_PLUGIN_HUB"), "/")
+	token := os.Getenv("VARTIO_PLUGIN_TOKEN")
+	out := map[string]string{}
+	if base == "" || token == "" || agent == "" {
+		return out
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/config?agent="+url.QueryEscape(agent), nil)
+	if err != nil {
+		return out
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return out
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return out
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	if out == nil {
+		out = map[string]string{}
+	}
+	return out
+}
+
 // dialIP maps a listening address to the loopback address the plugin dials.
 func dialIP(ip string) (string, bool) {
 	switch {
@@ -278,9 +345,20 @@ func dialIP(ip string) (string, bool) {
 func target(ip string, port int) string { return net.JoinHostPort(ip, strconv.Itoa(port)) }
 
 func (p *Plugin) findRunning(ctx context.Context, r *http.Request, id string, all bool) ([]Endpoint, int, error) {
-	names := browserProcs
+	names := append([]string{}, browserProcs...)
 	if all {
 		names = nil
+	} else {
+		for _, b := range extraBrowsers(ctx, id, "") {
+			for _, paths := range b.Paths {
+				for _, path := range paths {
+					base := strings.TrimSuffix(strings.ToLower(pathBase(path)), ".exe")
+					if base != "" && !slices.Contains(names, base) {
+						names = append(names, base)
+					}
+				}
+			}
+		}
 	}
 	ls, err := p.listeners(ctx, id, names)
 	if err != nil {
